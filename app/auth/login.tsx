@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -20,28 +21,43 @@ import {
   BORDER_RADIUS,
   DIMENSIONS,
 } from "@/constants";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login, isLoading, error, isAuthenticated } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [localError, setLocalError] = useState("");
+
+  // Navigate to tabs when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/(tabs)");
+    }
+  }, [isAuthenticated, router]);
 
   const handleLogin = async () => {
-    setIsLoading(true);
-    setError("");
+    setLocalError("");
+
+    // Validation
+    if (!email.trim()) {
+      setLocalError("البريد الإلكتروني مطلوب");
+      return;
+    }
+
+    if (!password.trim()) {
+      setLocalError("كلمة المرور مطلوبة");
+      return;
+    }
 
     try {
-      // TODO: Implement Supabase authentication
-      // For now, just navigate to tabs
-      setTimeout(() => {
-        router.replace("/(tabs)");
-        setIsLoading(false);
-      }, 1000);
+      await login(email.trim(), password);
     } catch (err) {
-      setError("فشل تسجيل الدخول");
-      setIsLoading(false);
+      const errorMessage =
+        err instanceof Error ? err.message : "فشل تسجيل الدخول";
+      setLocalError(errorMessage);
+      Alert.alert("خطأ في تسجيل الدخول", errorMessage);
     }
   };
 
@@ -86,7 +102,9 @@ export default function LoginScreen() {
             />
           </View>
 
-          {error && <Text style={styles.error}>{error}</Text>}
+          {(localError || error) && (
+            <Text style={styles.error}>{localError || error}</Text>
+          )}
 
           <TouchableOpacity
             style={[styles.button, isLoading && styles.buttonDisabled]}

@@ -1,9 +1,11 @@
 import React, { useEffect } from "react";
-import { I18nManager } from "react-native";
+import { I18nManager, ActivityIndicator, View } from "react-native";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { COLORS } from "@/constants";
+import { useAuth } from "@/hooks/useAuth";
+import { initializeSupabase } from "@/services/supabase";
 
 // Set RTL for Arabic
 I18nManager.forceRTL(true);
@@ -12,12 +14,42 @@ I18nManager.forceRTL(true);
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const { isAuthenticated, isLoading, checkAuth } = useAuth();
+
   useEffect(() => {
-    // Simulate resource loading
-    setTimeout(async () => {
-      await SplashScreen.hideAsync();
-    }, 2000);
-  }, []);
+    const initializeApp = async () => {
+      try {
+        // Initialize Supabase
+        initializeSupabase();
+
+        // Check authentication status
+        await checkAuth();
+
+        // Hide splash screen after auth check
+        await SplashScreen.hideAsync();
+      } catch (error) {
+        console.error("Failed to initialize app:", error);
+        await SplashScreen.hideAsync();
+      }
+    };
+
+    initializeApp();
+  }, [checkAuth]);
+
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: COLORS.primary,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color={COLORS.white} />
+      </View>
+    );
+  }
 
   return (
     <>
@@ -30,9 +62,16 @@ export default function RootLayout() {
           },
         }}
       >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="auth" />
-        <Stack.Screen name="tabs" />
+        {isAuthenticated ? (
+          // Authenticated user - show main app
+          <Stack.Screen name="tabs" />
+        ) : (
+          // Unauthenticated user - show auth screens
+          <>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="auth" />
+          </>
+        )}
       </Stack>
     </>
   );
